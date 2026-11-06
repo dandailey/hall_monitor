@@ -14,7 +14,7 @@ HallMonitor is a **database-triggered event system** for Rails applications. It 
 Add this line to your application's Gemfile:
 
 ```ruby
-gem "hall_monitor", git: "https://github.com/dandailey/hall_monitor.git"
+gem "hall_monitor", git: "https://github.com/dandailey/hall_monitor.git", tag: "v0.7.0"
 ```
 
 The `git:` source is required. An unrelated gem named `hall_monitor` exists on RubyGems, so a bare `gem "hall_monitor"` installs the wrong code.

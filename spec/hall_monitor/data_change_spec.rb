@@ -72,5 +72,18 @@ RSpec.describe HallMonitor::DataChange do
       expect(hash[:primary_key_name]).to eq("id")
       expect(hash[:primary_key_value]).to eq(123)
     end
+
+    it "omits the account when the host app has no Current model" do
+      hash = described_class.new(table: "test_models").as_hash
+
+      expect(hash).not_to have_key(:account_id)
+      expect(hash[:publisher]).to eq("Hall Monitor")
+    end
+
+    it "includes the account when the host app has a Current model" do
+      stub_const("Current", Class.new { def self.account = Struct.new(:id).new(7) })
+
+      expect(described_class.new(table: "test_models").as_hash[:account_id]).to eq(7)
+    end
   end
 end
