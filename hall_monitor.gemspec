@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
   spec.description = "HallMonitor is a database-triggered event system for Rails applications. " \
                      "It allows developers to register reactive code blocks that execute automatically when " \
                      "specific data changes occur."
-  spec.homepage = "https://github.com/corporatetools/hall_monitor"
+  spec.homepage = "https://github.com/dandailey/hall_monitor"
   spec.license = "MIT"
   spec.required_ruby_version = Gem::Requirement.new(">= 2.5.0")
 
@@ -35,5 +35,4 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "rspec", "~> 3.0"
   spec.add_development_dependency "rake", "~> 13.0"
   # We'll let the Gemfile control the specific SQLite version
-  spec.add_development_dependency "standardrb", "~> 1.0"
 end

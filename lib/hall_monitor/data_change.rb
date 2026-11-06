@@ -116,10 +116,10 @@ module HallMonitor
         primary_key_value: primary_key_value,
         operation: operation,
         changes: changes,
-        publisher: HallMonitor.config.publisher_name,
-        account_id: Current&.account&.id
+        publisher: HallMonitor.config.publisher_name
       }
 
+      result[:account_id] = Current.account&.id if defined?(Current) && Current.respond_to?(:account)
       result[:all_fields] = all_fields if primary_key_name.nil?
 
       result

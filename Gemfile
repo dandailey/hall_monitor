@@ -11,7 +11,7 @@ gem "activesupport", ">= 6.0"
 group :development, :test do
   gem "rspec", "~> 3.10"
   gem "rake", "~> 13.0"
-  gem "standardrb", "~> 1.0"
-  gem "sqlite3", "~> 1.6" # For testing with an actual DB
+  gem "standard", "~> 1.3"
+  gem "sqlite3", ">= 1.6" # For testing with an actual DB
   gem "byebug", "~> 11.1" # For debugging
 end 

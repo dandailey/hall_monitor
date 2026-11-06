@@ -10,6 +10,9 @@
 #   - Nil - All fields for this table are included
 #   - A string or symbol representing a field name
 #   - An array of strings or symbols representing field names
+#   - A dotted name such as "metadata.status", which watches one path inside a JSON
+#     column rather than the whole column. Array elements are addressed by index,
+#     for example "metadata.items.0.sku".
 # - An array of any of the above options. Each element is treated as a separate table.
 
 # STANDARDIZED FORMAT
@@ -20,17 +23,19 @@
 # }
 # All keys and values are strings. Empty hash means all fields are included.
 # Can also be a nil, which means no fields are included.
+# Nested paths are kept apart from the map, which only ever holds column names:
+# { "table_name" => { "field_name" => [["path", "to", "value"], ...] } }
 
 module HallMonitor
   class FieldMap
-    attr_reader :map
+    attr_reader :map, :nested_paths
 
     def initialize(map)
       self.map = map
     end
 
     def map=(map)
-      @map = self.class.standardize map
+      @map, @nested_paths = self.class.parse(map)
     end
 
     def table_names
@@ -63,6 +68,15 @@ module HallMonitor
       map[table_name].include?(field.to_s)
     end
 
+    def nested_paths?(table_name)
+      nested_paths.key?(table_name)
+    end
+
+    # The JSON paths watched within this field. Empty means the whole field is watched.
+    def nested_paths_for(table_name, field)
+      nested_paths.dig(table_name, field.to_s) || []
+    end
+
     # Returns true if this field map shares any fields with the other field map.
     def overlaps_with?(other)
       other = self.class.new(other) unless other.is_a?(self.class)
@@ -81,12 +95,20 @@ module HallMonitor
     end
 
     def self.standardize(map)
-      return nil if map.nil?
-      return nil if map.is_a?(Array) && map.empty?
+      parse(map).first
+    end
+
+    # Returns the standardized map and the nested paths that go with it.
+    def self.parse(map)
+      return [nil, {}] if map.nil?
+      return [nil, {}] if map.is_a?(Array) && map.empty?
 
       map = [map] unless map.is_a?(Array)
+      standardized = {}
+      nested_paths = {}
+      whole_fields = {}
 
-      map.each_with_object({}) do |option, standardized|
+      map.each do |option|
         next if option.nil?
         option = {option => nil} unless option.is_a?(Hash)
 
@@ -94,20 +116,40 @@ module HallMonitor
           next if key.nil? || key.to_s.strip.empty?
 
           table_name = (key.is_a?(Class) && key < ActiveRecord::Base) ? key.table_name : key.to_s
-          attributes = value.nil? ? nil : Array(value).map(&:to_s)
 
-          if standardized[table_name]
-            if standardized[table_name].nil? || attributes.nil?
-              standardized[table_name] = nil # all columns for this table
+          if value.nil?
+            standardized[table_name] = nil # all columns for this table
+            next
+          end
+          next if standardized.key?(table_name) && standardized[table_name].nil?
+
+          fields = standardized[table_name] ||= []
+          Array(value).map(&:to_s).each do |attribute|
+            field, *path = attribute.split(".")
+            fields << field unless fields.include?(field)
+
+            if path.empty?
+              (whole_fields[table_name] ||= []) << field
             else
-              standardized[table_name] += attributes
-              standardized[table_name].uniq!
+              paths = ((nested_paths[table_name] ||= {})[field] ||= [])
+              paths << path unless paths.include?(path)
             end
-          else
-            standardized[table_name] = attributes
           end
         end
       end
+
+      [standardized, prune_nested_paths(nested_paths, standardized, whole_fields)]
     end
+
+    # Watching a whole column or table is broader than watching a path inside it, so the broader watch wins.
+    def self.prune_nested_paths(nested_paths, standardized, whole_fields)
+      nested_paths.each_with_object({}) do |(table_name, fields), pruned|
+        next if standardized[table_name].nil?
+
+        remaining = fields.reject { |field, _paths| whole_fields.fetch(table_name, []).include?(field) }
+        pruned[table_name] = remaining unless remaining.empty?
+      end
+    end
+    private_class_method :prune_nested_paths
   end
 end

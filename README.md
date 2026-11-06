@@ -14,19 +14,15 @@ HallMonitor is a **database-triggered event system** for Rails applications. It 
 Add this line to your application's Gemfile:
 
 ```ruby
-gem "hall_monitor"
+gem "hall_monitor", git: "https://github.com/dandailey/hall_monitor.git"
 ```
+
+The `git:` source is required. An unrelated gem named `hall_monitor` exists on RubyGems, so a bare `gem "hall_monitor"` installs the wrong code.
 
 And then execute:
 
 ```bash
 $ bundle install
-```
-
-Or install it yourself as:
-
-```bash
-$ gem install hall_monitor
 ```
 
 ## Usage
@@ -80,6 +76,23 @@ HallMonitor.register_watcher(
 )
 ```
 
+### Monitoring a Path Inside a JSON Column
+
+A dotted field name watches one value inside a JSON column. The watcher fires only when that value changes, not on every change to the column:
+
+```ruby
+HallMonitor.register_watcher(
+  HallMonitor::Watcher.new(
+    field_map: { Order => ["metadata.status", "metadata.items.0.sku"] },
+    callback: ->(data_change) {
+      # Your logic here
+    }
+  )
+)
+```
+
+Several paths can be watched in the same column. If the same field map also watches the whole column or table, the broader watch wins.
+
 ## Development
 
 After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
@@ -88,7 +101,7 @@ To install this gem onto your local machine, run `bundle exec rake install`. To 
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/yourusername/hall_monitor.
+Bug reports and pull requests are welcome on GitHub at https://github.com/dandailey/hall_monitor.
 
 ## License
 

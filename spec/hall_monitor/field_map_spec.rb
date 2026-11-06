@@ -76,17 +76,21 @@ RSpec.describe HallMonitor::FieldMap do
     end
 
     context "when initialized with an array of various options" do
-      it "standardizes the map correctly" do
+      it "lets a whole-table entry win over field entries" do
         field_map = described_class.new([
           "test_models",
           {TestModel => ["name", "description"]},
           test_models: :created_at
         ])
-        expected_map = {
-          "test_models" => ["name", "description", "created_at"]
-        }
-        expect(field_map.map).to eq(expected_map)
+        expect(field_map.map).to eq({"test_models" => nil})
       end
+    end
+  end
+
+  describe "merging field entries for one table" do
+    it "combines them" do
+      field_map = described_class.new([{TestModel => ["name", "description"]}, {test_models: :created_at}])
+      expect(field_map.map).to eq({"test_models" => ["name", "description", "created_at"]})
     end
   end
 
@@ -249,6 +253,46 @@ RSpec.describe HallMonitor::FieldMap do
         expect(built_map).to be_a(described_class)
         expect(built_map.map).to eq(input)
       end
+    end
+  end
+
+  describe "nested paths" do
+    it "keeps column names in the map and paths alongside it" do
+      field_map = described_class.new("orders" => ["metadata.status", "name"])
+      expect(field_map.map).to eq({"orders" => ["metadata", "name"]})
+      expect(field_map.nested_paths_for("orders", "metadata")).to eq([["status"]])
+      expect(field_map.nested_paths_for("orders", "name")).to eq([])
+    end
+
+    it "keeps every path watched in one column" do
+      field_map = described_class.new("orders" => ["metadata.a", "metadata.b.c"])
+      expect(field_map.map).to eq({"orders" => ["metadata"]})
+      expect(field_map.nested_paths_for("orders", "metadata")).to eq([["a"], ["b", "c"]])
+    end
+
+    it "keeps paths from separate entries for the same table" do
+      field_map = described_class.new([{"orders" => "metadata.a"}, {"orders" => "metadata.b"}])
+      expect(field_map.nested_paths_for("orders", "metadata")).to eq([["a"], ["b"]])
+    end
+
+    it "lets a whole column win over a path inside it, in either order" do
+      expect(described_class.new("orders" => ["metadata", "metadata.a"]).nested_paths?("orders")).to be false
+      expect(described_class.new("orders" => ["metadata.a", "metadata"]).nested_paths?("orders")).to be false
+    end
+
+    it "lets a whole table win over paths and fields, in either order" do
+      [
+        [{"orders" => nil}, {"orders" => ["metadata.a"]}],
+        [{"orders" => ["metadata.a"]}, {"orders" => nil}]
+      ].each do |input|
+        field_map = described_class.new(input)
+        expect(field_map.map).to eq({"orders" => nil})
+        expect(field_map.nested_paths?("orders")).to be false
+      end
+    end
+
+    it "keeps standardize returning just the map" do
+      expect(described_class.standardize("orders" => "metadata.a")).to eq({"orders" => ["metadata"]})
     end
   end
 end
